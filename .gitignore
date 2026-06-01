@@ -1,0 +1,54 @@
+# dependencies
+node_modules
+dist
+build
+.tools
+
+# environment
+.env
+.env.local
+.env.*.local
+
+# docker
+docker-compose.override.yml
+
+# prisma
+prisma/migrations/*.sql
+prisma/*.db
+prisma/*.db-journal
+
+# logs
+logs
+*.log
+npm-debug.log*
+
+# os
+.DS_Store
+Thumbs.db
+
+# ide
+.idea
+.vscode
+*.swp
+*.swo
+*~
+
+# testing
+coverage
+.nyc_output
+
+# cursor AI
+.cursor
+.cursor-*
+
+# backend specific
+backend/node_modules
+backend/dist
+backend/.env
+
+# frontend specific
+frontend/node_modules
+frontend/.next
+frontend/out
+frontend/.env
+frontend/.env.local
