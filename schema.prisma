@@ -1,0 +1,324 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum UserRole {
+  OWNER
+  QUALITY_MANAGER
+  AUDITOR
+  QC_ENGINEER
+  VIEWER
+}
+
+enum AuditStatus {
+  PLANNED
+  IN_PROGRESS
+  COMPLETED
+  CLOSED
+}
+
+enum AuditType {
+  INTERNAL
+  EXTERNAL
+  SUPPLIER
+  PROCESS
+}
+
+enum NCRSeverity {
+  LOW
+  MEDIUM
+  HIGH
+  CRITICAL
+  MAJOR
+}
+
+enum NCRStatus {
+  OPEN
+  IN_PROGRESS
+  CLOSED
+}
+
+enum CAPAStatus {
+  OPEN
+  IN_PROGRESS
+  COMPLETED
+  VERIFIED
+}
+
+enum Industry {
+  GENERAL
+  MANUFACTURING
+  PHARMA
+  FOOD
+  STEEL_ROLLING
+}
+
+enum KnowledgeType {
+  QMS
+  ISO
+  SOP
+  POLICY
+  MANUAL
+  WORK_INSTRUCTION
+  PROCEDURE
+  TRAINING
+  AUDIT
+  NCR
+  CAPA
+  KPI
+  RISK
+  TEMPLATE
+  OPERATIONAL_PROCEDURE
+  FACTORY_OPERATION
+  STANDARD_CLAUSE
+  AUDIT_CHECKLIST
+  INTERVIEW_QA
+  DEFECT_SCENARIO
+  CAPA_TEMPLATE
+  NCR_TEMPLATE
+  RCA_METHODOLOGY
+  RISK_ASSESSMENT
+  INSPECTION_PROCEDURE
+}
+
+enum AuthorityLevel {
+  LOW
+  STANDARD
+  HIGH
+  CRITICAL
+}
+
+model User {
+  id        String   @id @default(uuid())
+  email     String   @unique
+  password  String
+  name      String?
+  role      UserRole @default(VIEWER)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  sessions      Session[]
+  refreshTokens RefreshToken[]
+  auditLogs     AuditLog[]
+
+  @@map("users")
+}
+
+model Session {
+  id        String   @id @default(uuid())
+  userId    String
+  token     String   @unique
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("sessions")
+}
+
+model RefreshToken {
+  id            String    @id @default(uuid())
+  userId        String
+  tokenHash     String
+  jti           String    @unique
+  issuedAt      DateTime  @default(now())
+  expiresAt     DateTime
+  revokedAt     DateTime?
+  replacedByJti String?
+  createdAt     DateTime  @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([expiresAt])
+  @@index([revokedAt])
+
+  @@map("refresh_tokens")
+}
+
+model AuditLog {
+  id        String   @id @default(uuid())
+  userId    String
+  action    String
+  resource  String
+  details   Json?
+  ipAddress String?
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("audit_logs")
+}
+
+model Audit {
+  id            String      @id @default(uuid())
+  auditNumber   String      @unique
+  title         String
+  description   String?
+  type          AuditType   @default(INTERNAL)
+  status        AuditStatus @default(PLANNED)
+  standard      String?
+  scope         String?
+  auditor       String?
+  auditees      String[]
+  scheduledDate DateTime?
+  dueDate       DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  ncrs NCR[]
+
+  @@map("audits")
+}
+
+model NCR {
+  id          String      @id @default(uuid())
+  ncrNumber   String      @unique
+  title       String
+  description String?
+  type        String?
+  industry    Industry?
+  process     String?
+  severity    NCRSeverity @default(MEDIUM)
+  status      NCRStatus   @default(OPEN)
+  createdBy   String?
+
+  auditId String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  audit   Audit?       @relation(fields: [auditId], references: [id])
+  actions CAPAAction[]
+
+  @@map("ncrs")
+}
+
+model CAPAAction {
+  id                 String     @id @default(uuid())
+  title              String?
+  type               String?
+  description        String?
+  responsible        String?
+  verificationMethod String?
+  dueDate            DateTime?
+  status             CAPAStatus @default(OPEN)
+
+  ncrId String
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  ncr NCR @relation(fields: [ncrId], references: [id], onDelete: Cascade)
+
+  @@map("capa_actions")
+}
+
+model KPIMetric {
+  id          String   @id @default(uuid())
+  name        String
+  description String?
+  category    String?
+  frequency   String?
+  target      Float?
+  unit        String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  records KPIMetricRecord[]
+
+  @@map("kpi_metrics")
+}
+
+model KPIMetricRecord {
+  id         String   @id @default(uuid())
+  metricId   String
+  value      Float
+  period     String?
+  recordedAt DateTime @default(now())
+
+  createdAt DateTime @default(now())
+
+  metric KPIMetric @relation(fields: [metricId], references: [id], onDelete: Cascade)
+
+  @@map("kpi_metric_records")
+}
+
+model InspectionRecord {
+  id           String    @id @default(uuid())
+  recordNumber String?
+  title        String
+  result       String
+  status       NCRStatus @default(OPEN)
+  inspector    String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("inspection_records")
+}
+
+model KnowledgeObject {
+  id              String          @id @default(uuid())
+  objectId        String          @unique
+  title           String
+  content         String
+  category        String?
+  process         String?
+  subprocess      String?
+  standard        String?
+  language        String?
+  version         String?
+  chunkCount      Int             @default(0)
+  retrievalTags   String[]
+  tags            String[]
+  industry        Industry?
+  knowledgeType   KnowledgeType
+  authorityLevel  AuthorityLevel?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  chunks KnowledgeChunk[]
+
+  @@map("knowledge_objects")
+}
+
+model KnowledgeChunk {
+  id                String   @id @default(uuid())
+  knowledgeObjectId String
+  chunkIndex        Int
+  content           String
+  metadata          Json?
+  vectorId          String?
+
+  createdAt DateTime @default(now())
+
+  knowledgeObject KnowledgeObject @relation(fields: [knowledgeObjectId], references: [id], onDelete: Cascade)
+
+  @@map("knowledge_chunks")
+}
+
+model IngestionJob {
+  id              String   @id @default(uuid())
+  fileName        String
+  fileType        String?
+  fileSize        Int?
+  status          String
+  totalChunks     Int      @default(0)
+  processedChunks Int      @default(0)
+  errorMessage    String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("ingestion_jobs")
+}
